@@ -21,12 +21,11 @@ total length is 44 Bytes:
 |29-32|Pointer for Hard mode enemy laoding list|-|
 |33-36|Pointer for Normal mode enemy laoding list|-|
 |37-40|Pointer for S-Hard mode enemy laoding list|-|
-|41|unknown|-|
-|42|unknown|-|
-|43|unknown|-|
-|44|unknown|-|
+|41|unknwon|something for layer 0 and layer 3 special effect|
+|42|unknown|something for layer 0 and layer 3 special effect|
+|43-44|music volume|u16, but there are perhaps some other things to trigger it, idk.|
 
-P.S. I remember one of the Flag in [41] to [44] set the waving degree of one layer and BG layer in the back of water block, but I have not get it clear that, I just test one of the Room Headers in level "palmtree paradise".
+P.S. The details about [41] and [42] are recorded in another file.
 
 ## About Camera Limitation string  
 
@@ -223,19 +222,19 @@ the structure of the linker table just like this, and every Level will have a ta
 ```
 struct MAPLinkerLineRecord
 {
-    unsigned char LinkerTypeFlag; //x01 for portal only, x02 for instant shift, x03 for door and tube, x04 unknown, x05 unknown
+    unsigned char Doortype; //x01 for portal only, x02 for instant shift, x03 for door and tube, x04 unknown, x05 unknown
     unsigned char RoomID; //start from x00
     unsigned char x1;
     unsigned char x2;
     unsigned char y1;
     unsigned char y2;  //topleft judge block position (x1, y1), bottomleft judge block position (x2, y2), the first block start from (0, 0)
-    unsigned char LinkerDestination;
+    unsigned char DestinationDoorId;
     //multiply x0C make a shift to find another linker record to find the destination ROOM by RoomID, wario will appear at the position(x1, y1) in a (new) MAP
     //and immediately shift the position with vector (HorizontalDisplacement, VerticalDisplacement)
     //if set LinkerTypeFlag=0x01 for protal, then you should set LinkerDestination, HorizontalDisplacement and VerticalDisplacement all be 0x00
     unsigned char HorizontalDisplacement;
     unsigned char VerticalDisplacement;  //the two numbers can be negtivate by using this function: ResultByte = 0x100 + (the negtive number), so -1 just input 0xFF
-    unsigned char EnemyAndElementTable_ID;
+    unsigned char SpritesSetID;
     unsigned char BGM_ID_FirstByte;  //Low Byte
     unsigned char BGM_ID_SecondByte;  //High Byte
 };
@@ -247,7 +246,6 @@ use [03000023] to find the correct Level Header and take down the offset when yo
 
 **TODO in ROMHacking：** 
 - Tileset Header last 3 pointers' usage
-- Sprites static rendering
 - all the setting Flags in Room Header
 
 **TODO in extracting ROM data：**
