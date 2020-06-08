@@ -72,9 +72,9 @@ the GBA game use `Tile` to construct map, and each map we need a `Tileset` to in
 |4|pointer for background `Tile` graphic data|BG Tile data and Tile data save in different place|
 |5|length of BG `Tile` graphic data|-|
 |6|pointer for Block data|including information about the construction of 4 Tiles, if we should turn them around before loaded, and palette ID in used|
-|7|wario animation controller table pointer|a flag table for controlling wario animations by different proc for every Tile16, it also can reset Layer0 color blending params|
+|7|TerrainType Id table pointer|a table for every Tile16, it can also reset Layer0 color blending params|
 |8|event id table pointer|an id table of the event it trigger when wario knock into a Tile16|
-|9|palettes for basic element contained in every room|5 or 7 lines of palettes, need to be checked|
+|9|palettes for basic sprites elements contained in every room|5 or 7 lines of palettes, need to be checked|
 
 ## About Tile and Block in WL4  
 
@@ -169,21 +169,24 @@ End Select
 2. every Tile for Sprites use one palette
 3. Don't know exactly about the loading of enemy yet except the following things:
 
-**Enemy Header**
-there is a Enemy Header list for each enemy to describes the loading information of them.  
-the structure of one Enemy Header just like this:  
+**sprites loading list**
+Each difficulty in each Room has a sprites loading list for each sprite, describing the loading information of them.  
+the struct for one sprite looks like this:  
 
 |Offset|Data type|Description|
 |:-:|:-:|:-:|
 |+0x00|u8|Y-coordinate (top -> bottom)|
 |+0x01|u8|X-coordinate (left -> right)|
-|+0x02|u8|Enemy index|
+|+0x02|u8|id in spriteset|
 
-A record containing all 0xFF fields marks the end of the list 
+3 0xFF mark the end of a list.  
 
-**Enemy ID**
-you should know that there is a huge enemy pointer list at the tail of the ROM valid data, and every room will load some basic elements universally. so the first 17(from 0x00 to 0x10) elements in every room is fixed. 
-In the pointers table of elements and enemies, the first one point to a big block of data contains all the coins and someother things should be seen as a OBJ or elements, and the rest of them are. The rest 16 in the first 17 elements are not all valid, some of the valid oens are:   
+**Sprites' ID**
+Each room will load some basic sprites graphic data. We found that the graphic data for the first several sprites in every room will be loaded first before the other sprites graphic data being loading and they are always the same(they are the graphic data of gem pieces, CD, heart boxes, etc.). Then different sprites graphic data will be loaded after that. This is how the sprites get loaded ingame. Btw, the graphic data of gem pieces, CD, heart boxes things in vram can be overwritten by other sprites, so in some spriteset, you will find the editor cannot render those boxes correctly, so that's a feature, not a bug.  
+In the pointers table of spriteset graphic data, the very first one point to a big block of data contains all the coins and other basic things needed ingame.  
+Id in spriteset is local, global indexes are different.  
+We global-indexed different sprites by the spriteset graphic data loading table in the rom, i don't want to talk about it here, you need to know that, the index are same in sprites AI functions table(for primary AI functions only, secondary AI functions' pointers are in that table too appended to the primary AI functions' pointers).  
+Each spriteset reserves the first 16 id for some sprites used in every levels:  
 
 |ID|About| 
 |:-:|:-:|
@@ -192,13 +195,14 @@ In the pointers table of elements and enemies, the first one point to a big bloc
 |06|full-health box|
 |07|Diamond|
 |08|Frog switch|
-If you try the other IDs, you perhaps will get something but those things cannot be use at all.
-and every room will add other Sprites Tiles one by one by using the pointers after 78EBF0 in ROM and the load table pointer after 78EF78. you can get the load table ID when getting in to a room by the Byte in map linker table.
 
-**Elements and Enemies Load table structure**
+Other IDs before 0x10 will run some AI functions ingame but with a wrong vram tile settings, so you cannot see the effects of them.  
+Other Sprites tiles can be loaded by using the pointers after ``0x78EBF0`` and the spriteset loading table pointer after ``0x78EF78``. you can load different spriteset by setting the spriteset Id byte in Door table differently for different Doors in one Room.  
+
+**Elements and Enemies Load table structure**  
 every record contains 2 bytes, the first one B1 saves the enemy's ID and the second one B2 represents for the palette data stop position.(there is 16 palettes for Sprites at all and the 9th of them should be the base and the offset for it is 0) And the whole table stop by a "\x00\x00" word.
 
-**Loading of Elements and Enemies**
+**Loading of Elements and Enemies**  
 1. get Sprites Tile data pointer by this: ``(B1-0x10)*4+78EBF0``
 2. get Sprites palette pointer by this: ``(B1-0x10)*4+78EDB4``
 3. the length of Tiles data we should load is calculated by this (unit: byte): ``a=(int16)[(B1-0x10)*4+3B2C90]``
@@ -216,37 +220,32 @@ P.S. perhaps there is something wrong in this record: "``the 9th of them should 
 4. in sub_801DA70(int a1), the data after 0x03000A24 was got one by one and used to calculate the final OAM attribute for each OBJ and the final data is saved in RAM after 03001444  
 5. in sub_0801BC0C, the procedure use the DMA channel directly DMA all the data after 03001444 to OAM and the first frame of all the Object is determined.  
 
-## Room change Linker Table  
+## Door Table  
 
-the structure of the linker table just like this, and every Level will have a table and the pointers table for all of them start from 78F21C, the order for room header string pointers table and Room change Linker rercords pointers table are in the same pace, you can use the same offset to find both the pointers just in one time.The table stop by an all-zero record:  
+the structure of the Door table is just like this, and every Level will have a table and one pointer which can be found after 78F21C, the orders of roomheader tables' pointers and Door tables' pointers table are same, you can use the same offset to find both the pointers just in one time. This table ends by an all-zero line:  
 ```
-struct MAPLinkerLineRecord
-{
-    unsigned char Doortype; //x01 for portal only, x02 for instant shift, x03 for door and tube, x04 unknown, x05 unknown
-    unsigned char RoomID; //start from x00
-    unsigned char x1;
-    unsigned char x2;
-    unsigned char y1;
-    unsigned char y2;  //topleft judge block position (x1, y1), bottomleft judge block position (x2, y2), the first block start from (0, 0)
-    unsigned char DestinationDoorId;
-    //multiply x0C make a shift to find another linker record to find the destination ROOM by RoomID, wario will appear at the position(x1, y1) in a (new) MAP
-    //and immediately shift the position with vector (HorizontalDisplacement, VerticalDisplacement)
-    //if set LinkerTypeFlag=0x01 for protal, then you should set LinkerDestination, HorizontalDisplacement and VerticalDisplacement all be 0x00
-    unsigned char HorizontalDisplacement;
-    unsigned char VerticalDisplacement;  //the two numbers can be negtivate by using this function: ResultByte = 0x100 + (the negtive number), so -1 just input 0xFF
-    unsigned char SpritesSetID;
-    unsigned char BGM_ID_FirstByte;  //Low Byte
-    unsigned char BGM_ID_SecondByte;  //High Byte
-};
+struct __DoorEntry
+    {
+        unsigned char DoorTypeByte;
+        unsigned char RoomID;
+        unsigned char x1;
+        unsigned char x2;
+        unsigned char y1;
+        unsigned char y2;
+        unsigned char LinkerDestination;
+        signed char HorizontalDelta;
+        signed char VerticalDelta;
+        unsigned char EntitySetID;
+        unsigned short BGM_ID;
+    };
 ```
-**how to find the pointer for the table**
-use [03000023] to find the correct Level Header and take down the offset when you find the right Level Header, the add the offset by 78F21C and you will find the correct pointer for Room change Linker Table.
+**how to find the pointer for the table**  
+Get the level Id from [03000023], which can be used to find the Level Header, and then the id can be used to find the correct pointer for Door Table by add ``0x78F21C`` by ``4 * Id``.
 
 ## TODO
 
-**TODO in ROMHacking：** 
-- Tileset Header last 3 pointers' usage
+**TODO in ROMHacking：**  
 - all the setting Flags in Room Header
 
-**TODO in extracting ROM data：**
+**TODO in extracting ROM data：**  
 - extract all the Tile and others' data
