@@ -181,7 +181,7 @@ the struct for one sprite looks like this:
 
 3 0xFF mark the end of a list.  
 
-**Sprites' ID**
+**Sprites' ID**  
 Each room will load some basic sprites graphic data. We found that the graphic data for the first several sprites in every room will be loaded first before the other sprites graphic data being loading and they are always the same(they are the graphic data of gem pieces, CD, heart boxes, etc.). Then different sprites graphic data will be loaded after that. This is how the sprites get loaded ingame. Btw, the graphic data of gem pieces, CD, heart boxes things in vram can be overwritten by other sprites, so in some spriteset, you will find the editor cannot render those boxes correctly, so that's a feature, not a bug.  
 In the pointers table of spriteset graphic data, the very first one point to a big block of data contains all the coins and other basic things needed ingame.  
 Id in spriteset is local, global indexes are different.  
